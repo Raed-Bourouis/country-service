@@ -73,8 +73,7 @@ pipeline {
                     
                     // Download from Nexus first
                     sh """
-                        curl -u \${NEXUS_USER}:\${NEXUS_PASS} \
-                        -O http://localhost:8081/repository/country-service-maven-releases/${groupId.replace('.', '/')}/${artifactId}/${version}/${artifactId}-${version}.war
+                        curl -u admin:180203 -O http://localhost:8081/repository/country-service-maven-snapshots/${groupId.replace('.', '/')}/${artifactId}/${version}/${artifactId}-${version}.war
                     """
                     
                     // Then deploy the downloaded WAR

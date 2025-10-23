@@ -88,15 +88,50 @@ pipeline {
                 sh """
                     echo "📦 Downloading latest WAR from Nexus..."
                     
-                    # Use Maven dependency plugin to download
-                    mvn dependency:copy \
-                    -Dartifact=${groupId}:${artifactId}:${version}:war \
-                    -DoutputDirectory=. \
-                    -Dmdep.useBaseVersion=true \
-                    -s settings.xml
+                    # Base path in Nexus
+                    BASE_PATH="${groupId.replace('.', '/')}/${artifactId}/${version}"
                     
-                    # Rename to simple name
-                    mv ${artifactId}-*.war deployment.war
+                    if [[ "${version}" == *"SNAPSHOT"* ]]; then
+                        echo "Fetching SNAPSHOT metadata..."
+                        
+                        # Download maven-metadata.xml
+                        curl -s -u \${NEXUS_USER}:\${NEXUS_PASS} \
+                        -o maven-metadata.xml \
+                        "http://localhost:8081/repository/${nexusRepo}/\${BASE_PATH}/maven-metadata.xml"
+                        
+                        if [ ! -f maven-metadata.xml ]; then
+                            echo "❌ Failed to download maven-metadata.xml"
+                            exit 1
+                        fi
+                        
+                        # Parse metadata to get timestamp and buildNumber
+                        TIMESTAMP=\$(grep -oP '(?<=<timestamp>)[^<]+' maven-metadata.xml | head -1)
+                        BUILD_NUMBER=\$(grep -oP '(?<=<buildNumber>)[^<]+' maven-metadata.xml | head -1)
+                        
+                        echo "Latest SNAPSHOT: \${TIMESTAMP}-\${BUILD_NUMBER}"
+                        
+                        # Construct actual filename
+                        BASE_VERSION=\${version%-SNAPSHOT}
+                        ACTUAL_FILE="${artifactId}-\${BASE_VERSION}-\${TIMESTAMP}-\${BUILD_NUMBER}.war"
+                        
+                        DOWNLOAD_URL="http://localhost:8081/repository/${nexusRepo}/\${BASE_PATH}/\${ACTUAL_FILE}"
+                    else
+                        # For release versions
+                        ACTUAL_FILE="${artifactId}-${version}.war"
+                        DOWNLOAD_URL="http://localhost:8081/repository/${nexusRepo}/\${BASE_PATH}/\${ACTUAL_FILE}"
+                    fi
+                    
+                    echo "Downloading from: \${DOWNLOAD_URL}"
+                    
+                    # Download the WAR
+                    curl -u \${NEXUS_USER}:\${NEXUS_PASS} \
+                    -o deployment.war \
+                    -f -L "\${DOWNLOAD_URL}"
+                    
+                    if [ ! -f deployment.war ]; then
+                        echo "❌ Failed to download WAR file"
+                        exit 1
+                    fi
                     
                     echo "✓ Downloaded successfully"
                     ls -lh deployment.war

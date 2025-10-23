@@ -80,7 +80,7 @@ pipeline {
                    deploy adapters: [
                     tomcat9(
                     credentialsId: 'tomcat-credentials',
-                    path: '',
+                    path: '/country-service',
                     url: 'http://localhost:8090'
                 )
             ],

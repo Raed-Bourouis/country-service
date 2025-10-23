@@ -77,12 +77,18 @@ pipeline {
                     """
                     
                     // Then deploy the downloaded WAR
-                    deploy adapters: [tomcat9(...)],
-                    contextPath: '/country-service',
-                    war: "${artifactId}-${version}.war"
+                   deploy adapters: [
+                    tomcat9(
+                    credentialsId: 'tomcat-credentials',
+                    path: '',
+                    url: 'http://localhost:8090'
+                )
+            ],
+            contextPath: '/country-service',
+            war: "${artifactId}-${version}.war"
                 }
         }
-}
+    }
     }
 
     post {

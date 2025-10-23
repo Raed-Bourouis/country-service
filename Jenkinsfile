@@ -18,7 +18,7 @@ pipeline {
             post{
                 success{
                     junit allowEmptyResults: true,
-                    testResults: '**/target/surfire-reports/*.xml'
+                    testResults: '**/target/surefire-reports/*.xml'
                 }
             }
         }
@@ -72,7 +72,7 @@ pipeline {
                     def artifactId = pom.artifactId
 
                     deploy adapters: [
-                        tomcat9(
+                        tomcat10(
                             credentialsId: 'tomcat-credentials',
                             path: '',
                             url: 'http://localhost:8090'

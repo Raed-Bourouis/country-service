@@ -7,6 +7,7 @@ pipeline {
         stage('Checkout code')
         {
             steps {
+                cleanWs() 
                 git branch: 'main', url: 'https://github.com/Raed-Bourouis/country-service.git'
             }
         }

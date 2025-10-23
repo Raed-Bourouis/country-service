@@ -61,7 +61,7 @@ pipeline {
             }
         }
 
-       stage('Deploy to Tomcat from Nexus') {
+      stage('Deploy to Tomcat from Nexus') {
     steps {
         script {
             def pom = readMavenPom file: 'pom.xml'
@@ -69,7 +69,6 @@ pipeline {
             def artifactId = pom.artifactId
             def groupId = pom.groupId
             
-            // Determine which Nexus repository to use
             def nexusRepo = version.endsWith('SNAPSHOT') ?
                 'country-service-maven-snapshots' :
                 'country-service-maven-releases'
@@ -87,39 +86,17 @@ pipeline {
                 )
             ]) {
                 sh """
-                    echo "📦 Downloading WAR from Nexus..."
+                    echo "📦 Downloading latest WAR from Nexus..."
                     
-                    # For SNAPSHOT versions, get the latest timestamped artifact
-                    if [[ "${version}" == *"SNAPSHOT"* ]]; then
-                        echo "Detected SNAPSHOT version, fetching maven-metadata.xml..."
-                        
-                        # Download maven-metadata.xml to find the latest snapshot
-                        curl -u \${NEXUS_USER}:\${NEXUS_PASS} \
-                        -o maven-metadata.xml \
-                        "http://localhost:8081/repository/${nexusRepo}/${groupId.replace('.', '/')}/${artifactId}/${version}/maven-metadata.xml"
-                        
-                        # Extract timestamp and buildNumber
-                        TIMESTAMP=\$(grep -oP '(?<=<timestamp>)[^<]+' maven-metadata.xml)
-                        BUILD_NUMBER=\$(grep -oP '(?<=<buildNumber>)[^<]+' maven-metadata.xml)
-                        
-                        echo "Found SNAPSHOT: \${TIMESTAMP}-\${BUILD_NUMBER}"
-                        
-                        # Construct the actual filename
-                        SNAPSHOT_VERSION="\${version%-SNAPSHOT}-\${TIMESTAMP}-\${BUILD_NUMBER}"
-                        WAR_FILE="${artifactId}-\${SNAPSHOT_VERSION}.war"
-                        NEXUS_URL="http://localhost:8081/repository/${nexusRepo}/${groupId.replace('.', '/')}/${artifactId}/${version}/\${WAR_FILE}"
-                    else
-                        # For release versions, use the simple version
-                        WAR_FILE="${artifactId}-${version}.war"
-                        NEXUS_URL="http://localhost:8081/repository/${nexusRepo}/${groupId.replace('.', '/')}/${artifactId}/${version}/\${WAR_FILE}"
-                    fi
+                    # Use Maven dependency plugin to download
+                    mvn dependency:copy \
+                    -Dartifact=${groupId}:${artifactId}:${version}:war \
+                    -DoutputDirectory=. \
+                    -Dmdep.useBaseVersion=true \
+                    -s settings.xml
                     
-                    echo "Downloading from: \${NEXUS_URL}"
-                    
-                    # Download the WAR file
-                    curl -u \${NEXUS_USER}:\${NEXUS_PASS} \
-                    -o deployment.war \
-                    -f "\${NEXUS_URL}"
+                    # Rename to simple name
+                    mv ${artifactId}-*.war deployment.war
                     
                     echo "✓ Downloaded successfully"
                     ls -lh deployment.war

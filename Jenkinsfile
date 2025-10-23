@@ -62,77 +62,80 @@ pipeline {
         }
 
         stage('Deploy to Tomcat from Nexus') {
-            steps {
-                script {
-                    def pom = readMavenPom file: 'pom.xml'
-                    def version = pom.version
-                    def artifactId = pom.artifactId
-                    def groupId = pom.groupId
+    steps {
+        script {
+            def pom = readMavenPom file: 'pom.xml'
+            def version = pom.version
+            def artifactId = pom.artifactId
+            def groupId = pom.groupId
+            
+            def nexusRepo = version.endsWith('SNAPSHOT') ?
+                'country-service-maven-snapshots' :
+                'country-service-maven-releases'
+            
+            withCredentials([
+                usernamePassword(
+                    credentialsId: 'nexus-credentials',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
+                ),
+                usernamePassword(
+                    credentialsId: 'tomcat-credentials',
+                    usernameVariable: 'TOMCAT_USER',
+                    passwordVariable: 'TOMCAT_PASS'
+                )
+            ]) {
+                sh """
+                    echo "📦 Finding latest artifact in Nexus..."
                     
-                    // Determine which Nexus repository to use
-                    def nexusRepo = version.endsWith('SNAPSHOT') ?
-                        'country-service-maven-snapshots' :
-                        'country-service-maven-releases'
+                    # Search for the latest artifact using Nexus REST API
+                    DOWNLOAD_URL=\$(curl -s -u \${NEXUS_USER}:\${NEXUS_PASS} \
+                    "http://localhost:8081/service/rest/v1/search/assets?repository=${nexusRepo}&group=${groupId}&name=${artifactId}&version=${version}&maven.extension=war" \
+                    | grep -oP '"downloadUrl"\\s*:\\s*"\\K[^"]+' | head -1)
                     
-                    // Construct Nexus download URL
-                    def nexusUrl = "http://localhost:8081/repository/${nexusRepo}/${groupId.replace('.', '/')}/${artifactId}/${version}/${artifactId}-${version}.war"
+                    echo "Found artifact at: \${DOWNLOAD_URL}"
                     
-                    echo "Nexus URL: ${nexusUrl}"
+                    # Download the WAR
+                    curl -u \${NEXUS_USER}:\${NEXUS_PASS} \
+                    -o deployment.war \
+                    -f "\${DOWNLOAD_URL}"
                     
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'nexus-credentials',
-                            usernameVariable: 'NEXUS_USER',
-                            passwordVariable: 'NEXUS_PASS'
-                        ),
-                        usernamePassword(
-                            credentialsId: 'tomcat-credentials',
-                            usernameVariable: 'TOMCAT_USER',
-                            passwordVariable: 'TOMCAT_PASS'
-                        )
-                    ]) {
-                        sh """
-                            echo "📦 Downloading WAR from Nexus..."
-                            curl -u \${NEXUS_USER}:\${NEXUS_PASS} \
-                            -o ${artifactId}-${version}.war \
-                            -f "${nexusUrl}"
-                            
-                            echo "✓ Downloaded: ${artifactId}-${version}.war"
-                            ls -lh ${artifactId}-${version}.war
-                            
-                            echo "🗑️  Undeploying existing application..."
-                            curl -s -u \${TOMCAT_USER}:\${TOMCAT_PASS} \
-                            "http://localhost:8090/manager/text/undeploy?path=/country-service" || echo "No existing deployment"
-                            
-                            echo "⏳ Waiting for undeploy to complete..."
-                            sleep 5
-                            
-                            echo "🚀 Deploying WAR to Tomcat..."
-                            RESPONSE=\$(curl -s -u \${TOMCAT_USER}:\${TOMCAT_PASS} \
-                            --upload-file ${artifactId}-${version}.war \
-                            "http://localhost:8090/manager/text/deploy?path=/country-service&update=true")
-                            
-                            echo "Tomcat Response: \$RESPONSE"
-                            
-                            if echo "\$RESPONSE" | grep -q "OK"; then
-                                echo "✅ Deployment successful!"
-                            else
-                                echo "❌ Deployment failed!"
-                                echo "\$RESPONSE"
-                                exit 1
-                            fi
-                            
-                            echo "🔍 Verifying deployment..."
-                            curl -s -u \${TOMCAT_USER}:\${TOMCAT_PASS} \
-                            "http://localhost:8090/manager/text/list" | grep country-service
-                            
-                            echo "✅ Application deployed successfully!"
-                            echo "🌐 Access at: http://localhost:8090/country-service"
-                        """
-                    }
-                }
+                    echo "✓ Downloaded successfully"
+                    ls -lh deployment.war
+                    
+                    echo "🗑️  Undeploying existing application..."
+                    curl -s -u \${TOMCAT_USER}:\${TOMCAT_PASS} \
+                    "http://localhost:8090/manager/text/undeploy?path=/country-service" || echo "No existing deployment"
+                    
+                    echo "⏳ Waiting for undeploy to complete..."
+                    sleep 5
+                    
+                    echo "🚀 Deploying WAR to Tomcat..."
+                    RESPONSE=\$(curl -s -u \${TOMCAT_USER}:\${TOMCAT_PASS} \
+                    --upload-file deployment.war \
+                    "http://localhost:8090/manager/text/deploy?path=/country-service&update=true")
+                    
+                    echo "Tomcat Response: \$RESPONSE"
+                    
+                    if echo "\$RESPONSE" | grep -q "OK"; then
+                        echo "✅ Deployment successful!"
+                    else
+                        echo "❌ Deployment failed!"
+                        echo "\$RESPONSE"
+                        exit 1
+                    fi
+                    
+                    echo "🔍 Verifying deployment..."
+                    curl -s -u \${TOMCAT_USER}:\${TOMCAT_PASS} \
+                    "http://localhost:8090/manager/text/list" | grep country-service
+                    
+                    echo "✅ Application deployed successfully!"
+                    echo "🌐 Access at: http://localhost:8090/country-service"
+                """
             }
         }
+    }
+}
     }
 
     post {

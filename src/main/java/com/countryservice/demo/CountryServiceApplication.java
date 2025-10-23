@@ -6,14 +6,14 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 
 @SpringBootApplication
-public class CountryserviceApplication extends SpringBootServletInitializer {
+public class CountryServiceApplication extends SpringBootServletInitializer {
 
     public static void main(String[] args) {
-        SpringApplication.run(CountryserviceApplication.class, args);
+        SpringApplication.run(CountryServiceApplication.class, args);
     }
 
     @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {
-        return builder.sources(CountryserviceApplication.class);
+        return builder.sources(CountryServiceApplication.class);
     }
 }

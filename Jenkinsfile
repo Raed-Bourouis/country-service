@@ -63,26 +63,27 @@ pipeline {
             }
         }
 
-        stage('Deploy to Tomcat') 
-        {
+        stage('Deploy to Tomcat') {
             steps {
                 script {
                     def pom = readMavenPom file: 'pom.xml'
                     def version = pom.version
                     def artifactId = pom.artifactId
-
-                    deploy adapters: [
-                        tomcat10(
-                            credentialsId: 'tomcat-credentials',
-                            path: '',
-                            url: 'http://localhost:8090'
-                        )
-                    ],
+                    def groupId = pom.groupId
+                    
+                    // Download from Nexus first
+                    sh """
+                        curl -u \${NEXUS_USER}:\${NEXUS_PASS} \
+                        -O http://localhost:8081/repository/country-service-maven-releases/${groupId.replace('.', '/')}/${artifactId}/${version}/${artifactId}-${version}.war
+                    """
+                    
+                    // Then deploy the downloaded WAR
+                    deploy adapters: [tomcat9(...)],
                     contextPath: '/country-service',
-                    war: "target/${artifactId}-${version}.war"
+                    war: "${artifactId}-${version}.war"
                 }
-            }
         }
+}
     }
 
     post {

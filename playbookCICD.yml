@@ -1,0 +1,57 @@
+---
+- name: Build and Deploy Docker Image to Kubernetes
+  hosts: localhost # Or your build/deployment server
+  connection: local
+
+  vars:
+    image_name: my-country-service
+    image_tag: v1
+    dockerfile_path: './'
+  
+  vars_files:
+    - vault.yml
+
+  tasks:
+    - name: Log in to Docker Hub
+      community.general.docker_login:
+        username: "{{ dockerhub_username }}"
+        password: "{{ dockerhub_password }}"  # Use environment variable for password
+        # Or use Ansible Vault for sensitive data
+        # password: "{{ docker_hub_password_from_vault }}"
+        reauthorize: yes  # Re-authenticate even if credentials exist
+
+    - name: Build Docker image
+      docker_image:
+        build:
+          path: "{{ dockerfile_path }}"
+        name: "{{ dockerhub_username }}/{{ image_name }}"
+        source: build
+        state: present
+        tag: "{{ image_tag }}"
+
+    - name: Push the Docker image to Docker Hub
+      docker_image:
+        name: "{{ dockerhub_username }}/{{ image_name }}"
+        tag: "{{ image_tag }}"
+        push: yes
+        source: local
+
+    - name: Pull Docker image (optional, for verification or on target nodes)
+      docker_image:
+        name: "{{ dockerhub_username }}/{{ image_name }}"
+        tag: "{{ image_tag }}"
+        source: pull
+
+    - name: Apply Kubernetes Deployment
+      kubernetes.core.k8s:
+        state: present
+        namespace: jenkins
+        src: deployment.yaml
+        kubeconfig: config  # Path to your kubeconfig file
+
+    - name: Apply Kubernetes Service
+      kubernetes.core.k8s:
+        state: present
+        namespace: jenkins
+        src: service.yaml
+        kubeconfig: config

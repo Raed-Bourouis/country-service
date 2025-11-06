@@ -29,7 +29,7 @@ pipeline {
                     withCredentials([string(credentialsId: 'ansible-vault', variable: 'VAULT_PASS')]) {
                         sh '''
                         echo "$VAULT_PASS" > vault_pass.txt
-                        ansible-playbook playbook.yml --vault-password-file vault_pass.txt
+                        ansible-playbook playbookCICD.yml --vault-password-file vault_pass.txt
                         rm -f vault_pass.txt
                     '''
                     }

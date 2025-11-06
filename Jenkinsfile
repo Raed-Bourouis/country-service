@@ -14,7 +14,7 @@ pipeline {
 
         stage('Compile, test code, package in war file and store in maven repo') {
             steps {
-                sh 'mvn clean install -DskipTests'
+                sh 'mvn clean install'
             }
             post {
                 success {

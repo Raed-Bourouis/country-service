@@ -26,7 +26,12 @@ pipeline {
         stage('Deploy using Ansible playbook') {
             steps {
                 script {
-                    sh 'ansible-playbook -i hosts playbookCICD.yml --check'
+                    withCredentials([string(credentialsId: 'ansible-vault', variable: 'VAULT_PASS')]) {
+                        sh '''
+                        ansible-playbook playbook.yml \
+                          --vault-password-file <(echo "$VAULT_PASS")
+                    '''
+                    }
                 }
             }
         }

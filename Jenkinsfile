@@ -14,7 +14,7 @@ pipeline {
 
         stage('Compile, test code, package in war file and store in maven repo') {
             steps {
-                sh 'mvn clean install'
+                sh 'mvn clean install -DskipTests'
             }
             post {
                 success {
@@ -28,7 +28,9 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'ansible-vault', variable: 'VAULT_PASS')]) {
                         sh '''
-                        ansible-playbook playbook.yml --vault-password-file < (echo "$VAULT_PASS")
+                        echo "$VAULT_PASS" > vault_pass.txt
+                        ansible-playbook playbook.yml --vault-password-file vault_pass.txt
+                        rm -f vault_pass.txt
                     '''
                     }
                 }

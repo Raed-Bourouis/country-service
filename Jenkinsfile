@@ -28,8 +28,7 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'ansible-vault', variable: 'VAULT_PASS')]) {
                         sh '''
-                        ansible-playbook playbook.yml \
-                          --vault-password-file <(echo "$VAULT_PASS")
+                        ansible-playbook playbook.yml --vault-password-file $VAULT_PASS
                     '''
                     }
                 }

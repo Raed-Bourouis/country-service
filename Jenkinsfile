@@ -14,7 +14,7 @@ pipeline {
 
         stage('Compile, test code, package in war file and store in maven repo') {
             steps {
-                sh 'mvn clean install -DskipTests'
+                sh 'mvn clean install'
             }
             post {
                 success {
@@ -23,6 +23,17 @@ pipeline {
                 }
             }
         }
+
+
+        stage('SonarQube Analysis')
+        {
+            steps{
+                withSonarQubeEnv(installationName:'MySonarQubeServer', credentialsId:'country-service'){
+                    sh 'mvn sonar:sonar -Dsonar.projectKey=country-service -Dsonar.projectName=country-service'
+                }
+            }
+        }
+
         stage('Deploy using Ansible playbook') {
             steps {
                 script {
